@@ -6,160 +6,212 @@
  * Time: 10:55 PM
  */
 
-/**
- * @param int $index
- * @param int $rows
- * @param int $columns
- * @return array
- */
-function GetNeighbourIndexes($index, $rows, $columns) {
-	$neighbours = [];
-	if ($index % $columns >= 1) {
-		$neighbours[] = $index - 1;
+const MIN_CELL = 5;
+const MAX_CELL = 15;
+
+class MineSweeper {
+	public $rows, $columns;
+	public $board;
+	public $state;
+	public $mines;
+
+	/**
+	 * MineSweeper constructor.
+	 *
+	 * @param int $rows
+	 * @param int $columns
+	 * @param int $mines
+	 * @param array $board
+	 */
+	public function __construct($rows, $columns, $mines, $board) {
+	    $this->rows = $rows;
+	    $this->columns = $columns;
+	    $this->board = $board;
+	    $this->mines = $mines;
+	}
+
+	/**
+	 * @param $index
+	 * @return array
+	 */
+	function GetNeighbourIndexes($index) {
+	    $rows = $this->rows;
+	    $columns = $this->columns;
+		$neighbours = [];
+		if ($index % $columns >= 1) {
+			$neighbours[] = $index - 1;
+			if ($index > $columns) {
+				$neighbours[] = $index - $columns - 1;
+			}
+			if ($index < ($rows * ($columns-1))) {
+				$neighbours[] = $index + $columns - 1;
+			}
+		}
+		if ($index % $columns !== ($columns - 1)) {
+			$neighbours[] = $index + 1;
+			if ($index > $columns) {
+				$neighbours[] = $index - $columns + 1;
+			}
+			if ($index < ($rows * ($columns-1))) {
+				$neighbours[] = $index + $columns + 1;
+			}
+		}
 		if ($index > $columns) {
-			$neighbours[] = $index - $columns - 1;
+			$neighbours[] = $index - $columns;
 		}
 		if ($index < ($rows * ($columns-1))) {
-			$neighbours[] = $index + $columns - 1;
+			$neighbours[] = $index + $columns;
 		}
-	}
-	if ($index % $columns !== ($columns - 1)) {
-		$neighbours[] = $index + 1;
-		if ($index > $columns) {
-			$neighbours[] = $index - $columns + 1;
-		}
-		if ($index < ($rows * ($columns-1))) {
-			$neighbours[] = $index + $columns + 1;
-		}
-	}
-	if ($index > $columns) {
-		$neighbours[] = $index - $columns;
-	}
-	if ($index < ($rows * ($columns-1))) {
-		$neighbours[] = $index + $columns;
-	}
-	return $neighbours;
-}
-
-function FindConnectedNeighbours($index, $board, $rows, $columns, $founded) {
-	$neighbours = GetNeighbourIndexes($index, $rows, $columns);
-	foreach ($neighbours as $neighbour) {
-		if (!in_array($neighbour, $founded)) {
-			if ($board[$neighbour][0] === 0) {
-				$founded[] = $neighbour;
-				$founded = FindConnectedNeighbours($neighbour, $board, $rows, $columns, $founded);
-			}
-		}
-	}
-	return $founded;
-}
-
-/**
- * @param int $start_index
- * @param int $rows
- * @param int $columns
- * @return array
- */
-function SetupNewBoard($start_index, $rows, $columns, $mines) {
-	$board = [];
-	$mine_indexes = [];
-	$total = $rows * $columns;
-	for ($i = 0; $i < $total; $i++) {
-		$mine_indexes[$i] = $i;
-		$board[$i] = [0, 0];
-	}
-	for ($i = 0; $i < $total; $i++) {
-		$swap_from = rand(0, $total-1);
-		$swap_to = rand(0, $total-1);
-		$temp = $mine_indexes[$swap_to];
-		$mine_indexes[$swap_to] = $mine_indexes[$swap_from];
-		$mine_indexes[$swap_from] = $temp;
-	}
-	$mines_created = 0;
-	for ($i = 0; $i < $mines; $i++) {
-		if ($mine_indexes[$i] != $start_index) {
-			$board[$mine_indexes[$i]] = [1, 0];
-			$mines_created++;
-		}
-	}
-	if ($mines_created < $mines) {
-		$board[$mine_indexes[$mines]] = [1, 0];
+		return $neighbours;
 	}
 
-	for ($i = 0; $i < $total; $i++) {
-		if ($board[$i][0] !== 1) {
-			$neighbours = GetNeighbourIndexes($i, $rows, $columns);
-			$mines_count = 0;
-			foreach ($neighbours as $neighbour) {
-				if ($board[$neighbour][0] === 1) {
-					$mines_count++;
-				}
-			}
-			if ($mines_count > 0) {
-				$board[$i][0] = $mines_count + 1;
-			}
-		}
-	}
-
-	return $board;
-}
-
-/**
- * @param array $board
- * @param int $button_index
- * @param int $rows
- * @param int $columns
- * @return array
- */
-function SelectCellAtIndex($board, $button_index, $rows, $columns) {
-	$cell = $board[$button_index];
-	$cell[1] = 1;
-	if ($cell[0] === 0) {
-		$empty_cells = FindConnectedNeighbours($button_index, $board, $rows, $columns, [$button_index]);
-		foreach ($empty_cells as $empty_cell) {
-			$board[$empty_cell][1] = 1;
-		}
-	}
-	$board[$button_index] = $cell;
-	return $board;
-}
-
-/**
- * @param array $board
- * @return array
- */
-function CheckGameState($board) {
-	$ended = false;
-	$winner = false;
-	$remaining_empty_cells = 0;
-	foreach ($board as $cell) {
-		if (!$ended) {
-			if ($cell[1] === 1) {
-				if ($cell[0] === 1) {
-					$ended = true;
-					$winner = false;
-				}
-			} else {
-				if ($cell[0] !== 1) {
-					$remaining_empty_cells++;
+	/**
+	 * @param int $index
+	 * @param array $founded
+	 * @return array
+	 */
+	function FindConnectedNeighbours($index, $founded) {
+		$board = $this->board;
+		$neighbours = $this->GetNeighbourIndexes($index);
+		foreach ($neighbours as $neighbour) {
+			if (!in_array($neighbour, $founded)) {
+				if ($board[$neighbour][0] === 0) {
+					$founded[] = $neighbour;
+					$founded = $this->FindConnectedNeighbours($neighbour, $founded);
 				}
 			}
 		}
+		return $founded;
 	}
-	if ($remaining_empty_cells === 0 && !$ended) {
-		$ended = true;
-		$winner = true;
+
+	/**
+	 * @param int $start_index
+	 */
+	function SetupNewBoard($start_index) {
+		$rows = $this->rows;
+		$columns = $this->columns;
+		$mines = $this->mines;
+		$board = [];
+		$mine_indexes = [];
+		$total = $rows * $columns;
+		for ($i = 0; $i < $total; $i++) {
+			$mine_indexes[$i] = $i;
+			$board[$i] = [0, 0];
+		}
+		for ($i = 0; $i < $total; $i++) {
+			$swap_from = rand(0, $total-1);
+			$swap_to = rand(0, $total-1);
+			$temp = $mine_indexes[$swap_to];
+			$mine_indexes[$swap_to] = $mine_indexes[$swap_from];
+			$mine_indexes[$swap_from] = $temp;
+		}
+		$mines_created = 0;
+		for ($i = 0; $i < $mines; $i++) {
+			if ($mine_indexes[$i] != $start_index) {
+				$board[$mine_indexes[$i]] = [1, 0];
+				$mines_created++;
+			}
+		}
+		if ($mines_created < $mines) {
+			$board[$mine_indexes[$mines]] = [1, 0];
+		}
+
+		for ($i = 0; $i < $total; $i++) {
+			if ($board[$i][0] !== 1) {
+				$neighbours = $this->GetNeighbourIndexes($i, $rows, $columns);
+				$mines_count = 0;
+				foreach ($neighbours as $neighbour) {
+					if ($board[$neighbour][0] === 1) {
+						$mines_count++;
+					}
+				}
+				if ($mines_count > 0) {
+					$board[$i][0] = $mines_count + 1;
+				}
+			}
+		}
+
+		$this->board = $board;
 	}
-	return [$ended, $winner];
+
+	/**
+	 * @param int $button_index
+	 */
+	function SelectCellAtIndex($button_index) {
+		$board = $this->board;
+		$cell = $board[$button_index];
+		$cell[1] = 1;
+		if ($cell[0] === 0) {
+			$empty_cells = $this->FindConnectedNeighbours($button_index, [$button_index]);
+			foreach ($empty_cells as $empty_cell) {
+				$board[$empty_cell][1] = 1;
+			}
+		}
+		$board[$button_index] = $cell;
+		$this->board = $board;
+	}
+
+	/**
+     * check for game ending with player as winner or loser
+	 */
+	function CheckGameState() {
+	    $board = $this->board;
+		$ended = false;
+		$winner = false;
+		$remaining_empty_cells = 0;
+		foreach ($board as $cell) {
+			if (!$ended) {
+				if ($cell[1] === 1) {
+					if ($cell[0] === 1) {
+						$ended = true;
+						$winner = false;
+					}
+				} else {
+					if ($cell[0] !== 1) {
+						$remaining_empty_cells++;
+					}
+				}
+			}
+		}
+		if ($remaining_empty_cells === 0 && !$ended) {
+			$ended = true;
+			$winner = true;
+		}
+		$this->state = [$ended, $winner];
+	}
+
+	/**
+	 * @param int $button_index
+	 */
+	function MakeMove($button_index) {
+	    $board = $this->board;
+		if (count($board) === 0) {
+			$this->SetupNewBoard($button_index);
+			$this->SelectCellAtIndex($button_index);
+		} else {
+			$this->SelectCellAtIndex($button_index);
+		}
+		$this->CheckGameState();
+    }
 }
 
+
+/****************************************
+ *                                      *
+ * HTML + FORM Renderer for MineSweeper *
+ *                                      *
+ ****************************************/
 ?>
 <html>
 	<head>
 	</head>
 	<body>
 <?php
+
 if (isset($_GET['params'])) {
+	/**
+	 * check board size and mines count
+	 */
 	$board_params = $_GET['params'];
 	$board_params = explode('x', $board_params);
 	if ( count($board_params) !== 3 || !is_numeric($board_params[0]) || !is_numeric($board_params[1]) || !is_numeric($board_params[2])) {
@@ -174,23 +226,29 @@ if (isset($_GET['params'])) {
 		echo 'Mines count should be less than total cells!';
 		die();
 	}
-	$board = [];
-	$state = [false, false];
+	if ($rows < MIN_CELL || $rows > MAX_CELL || $columns < MIN_CELL || $columns > MAX_CELL) {
+		echo 'Rows and Columns should be between 5 and 15';
+		die();
+	}
+
+	/**
+	 * create minesweeper and reset board if exists from post params
+	 */
+	$minesweeper = new MineSweeper($rows, $columns, $mines, []);
 	if (isset($_POST['board'])) {
-		$board = json_decode($_POST['board']);
+		$minesweeper->board = json_decode($_POST['board']);
 		if (isset($_POST['button'])) {
 			if ($_POST['button'] >= 0) {
-				if (count($board) === 0) {
-					$board = SetupNewBoard($_POST['button'], $rows, $columns, $mines);
-					$board = SelectCellAtIndex($board, $_POST['button'], $rows, $columns);
-				} else {
-					$board = SelectCellAtIndex($board, $_POST['button'], $rows, $columns);
-				}
-
-				$state = CheckGameState($board);
+			    $minesweeper->MakeMove($_POST['button']);
 			}
 		}
 	}
+	$board = $minesweeper->board;
+	$state = $minesweeper->state;
+
+	/**
+	 * render board
+	 */
 	?>
 	<form action="index.php?params=<?php echo $_GET['params']; ?>" method="post">
 	<input type="hidden" value="<?php echo json_encode($board); ?>" name="board">
@@ -207,7 +265,7 @@ if (isset($_GET['params'])) {
 				if ($board[$indexer][1] === 1 || $state[0]) {
 					if ($board[$indexer][0] === 1) {
 						$label = 'B';
-						$background = 'red';
+						$background = $state[1] ? 'green':'red';
 						$color = 'white';
 					} else if ($board[$indexer][0] > 0) {
 						$label = intval($board[$indexer][0]-1);
@@ -252,6 +310,9 @@ if (isset($_GET['params'])) {
 		<?php
 	}
 } else {
+	/**
+	 * ask for board size and mines count, then redirect to playing state in index.php
+	 */
 	if (isset($_POST['rows']) && isset($_POST['columns']) && isset($_POST['mines'])) {
 		ob_start();
 		header('Location: '.'index.php?params=' . $_POST['rows'] . 'x' . $_POST['columns'] . 'x' .$_POST['mines']);
@@ -260,9 +321,9 @@ if (isset($_GET['params'])) {
 	}
 	?>
 	<form action="index.php" method="post">
-		<label>Rows</label>
+		<label>Rows (min:<?php echo MIN_CELL ?>, max:<?php echo MAX_CELL ?>)</label>
 		<input placeholder="Board rows count" type="number" name="rows"><br/>
-		<label>Columns</label>
+		<label>Columns (min:<?php echo MIN_CELL ?>, max:<?php echo MAX_CELL ?>)</label>
 		<input placeholder="Board columns count" type="number" name="columns"><br/>
 		<label>Mines</label>
 		<input placeholder="Mines count" type="number" name="mines"><br/>
