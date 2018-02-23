@@ -17,26 +17,26 @@ function GetNeighbourIndexes($index, $rows, $columns) {
 	if ($index % $columns >= 1) {
 		$neighbours[] = $index - 1;
 		if ($index > $columns) {
-			$neighbours[] = $index - 11;
+			$neighbours[] = $index - $columns - 1;
 		}
 		if ($index < ($rows * ($columns-1))) {
-			$neighbours[] = $index + 9;
+			$neighbours[] = $index + $columns - 1;
 		}
 	}
-	if ($index % $columns !== 9) {
+	if ($index % $columns !== ($columns - 1)) {
 		$neighbours[] = $index + 1;
 		if ($index > $columns) {
-			$neighbours[] = $index - 9;
+			$neighbours[] = $index - $columns + 1;
 		}
 		if ($index < ($rows * ($columns-1))) {
-			$neighbours[] = $index + 11;
+			$neighbours[] = $index + $columns + 1;
 		}
 	}
 	if ($index > $columns) {
-		$neighbours[] = $index - 10;
+		$neighbours[] = $index - $columns;
 	}
 	if ($index < ($rows * ($columns-1))) {
-		$neighbours[] = $index + 10;
+		$neighbours[] = $index + $columns;
 	}
 	return $neighbours;
 }
