@@ -284,9 +284,21 @@ if (isset($_GET['params'])) {
 			$background = 'white';
 			if (isset($board[$indexer])) {
 			    if ($board[$indexer][1] === FLAG) {
-			        $label = '&#9873;';
-			        $background = 'orange';
-			        $color = 'white';
+			        if ($state[0]) {
+				        if ($board[$indexer][0] === BOMB) {
+					        $label = '&#128163;';
+					        $background = 'green';
+					        $color = 'white';
+                        } else {
+					        $label = '&#9873;';
+					        $background = 'red';
+					        $color = 'white';
+                        }
+                    } else {
+				        $label = '&#9873;';
+				        $background = 'orange';
+				        $color = 'white';
+                    }
                 } else if ($board[$indexer][1] === VIEW || $state[0]) {
 					if ($board[$indexer][0] === BOMB) {
 						$label = '&#128163;';
