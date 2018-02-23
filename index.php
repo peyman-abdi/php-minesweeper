@@ -2,6 +2,7 @@
 /**
  * Created by PhpStorm.
  * User: peyman abdi
+ * PHP 7.1
  */
 
 const MIN_CELL = 5;
@@ -46,7 +47,7 @@ class MineSweeper {
 			if ($index > $columns) {
 				$neighbours[] = $index - $columns - 1;
 			}
-			if ($index < ($rows * ($columns-1))) {
+			if ($index < (($rows-1) * $columns)) {
 				$neighbours[] = $index + $columns - 1;
 			}
 		}
@@ -55,14 +56,14 @@ class MineSweeper {
 			if ($index > $columns) {
 				$neighbours[] = $index - $columns + 1;
 			}
-			if ($index < ($rows * ($columns-1))) {
+			if ($index < (($rows - 1)* $columns)) {
 				$neighbours[] = $index + $columns + 1;
 			}
 		}
 		if ($index > $columns) {
 			$neighbours[] = $index - $columns;
 		}
-		if ($index < ($rows * ($columns-1))) {
+		if ($index < (($rows-1) * $columns)) {
 			$neighbours[] = $index + $columns;
 		}
 		return $neighbours;
