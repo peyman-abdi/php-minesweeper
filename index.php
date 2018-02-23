@@ -1,13 +1,16 @@
 <?php
 /**
  * Created by PhpStorm.
- * User: peyman
- * Date: 2/22/18
- * Time: 10:55 PM
+ * User: peyman abdi
  */
 
 const MIN_CELL = 5;
 const MAX_CELL = 15;
+const HIDDEN = 0;
+const VIEW = 1;
+const FLAG = 2;
+const BLANK = 0;
+const BOMB = 1;
 
 class MineSweeper {
 	public $rows, $columns;
@@ -75,7 +78,7 @@ class MineSweeper {
 		$neighbours = $this->GetNeighbourIndexes($index);
 		foreach ($neighbours as $neighbour) {
 			if (!in_array($neighbour, $founded)) {
-				if ($board[$neighbour][0] === 0) {
+				if ($board[$neighbour][0] === BLANK) {
 					$founded[] = $neighbour;
 					$founded = $this->FindConnectedNeighbours($neighbour, $founded);
 				}
@@ -96,7 +99,7 @@ class MineSweeper {
 		$total = $rows * $columns;
 		for ($i = 0; $i < $total; $i++) {
 			$mine_indexes[$i] = $i;
-			$board[$i] = [0, 0];
+			$board[$i] = [BLANK, HIDDEN];
 		}
 		for ($i = 0; $i < $total; $i++) {
 			$swap_from = rand(0, $total-1);
@@ -108,17 +111,17 @@ class MineSweeper {
 		$mines_created = 0;
 		for ($i = 0; $i < $mines; $i++) {
 			if ($mine_indexes[$i] != $start_index) {
-				$board[$mine_indexes[$i]] = [1, 0];
+				$board[$mine_indexes[$i]] = [BOMB, HIDDEN];
 				$mines_created++;
 			}
 		}
 		if ($mines_created < $mines) {
-			$board[$mine_indexes[$mines]] = [1, 0];
+			$board[$mine_indexes[$mines]] = [BOMB, HIDDEN];
 		}
 
 		for ($i = 0; $i < $total; $i++) {
 			if ($board[$i][0] !== 1) {
-				$neighbours = $this->GetNeighbourIndexes($i, $rows, $columns);
+				$neighbours = $this->GetNeighbourIndexes($i);
 				$mines_count = 0;
 				foreach ($neighbours as $neighbour) {
 					if ($board[$neighbour][0] === 1) {
@@ -140,11 +143,11 @@ class MineSweeper {
 	function SelectCellAtIndex($button_index) {
 		$board = $this->board;
 		$cell = $board[$button_index];
-		$cell[1] = 1;
-		if ($cell[0] === 0) {
+		$cell[1] = VIEW;
+		if ($cell[0] === BLANK) {
 			$empty_cells = $this->FindConnectedNeighbours($button_index, [$button_index]);
 			foreach ($empty_cells as $empty_cell) {
-				$board[$empty_cell][1] = 1;
+				$board[$empty_cell][1] = VIEW;
 			}
 		}
 		$board[$button_index] = $cell;
@@ -159,15 +162,18 @@ class MineSweeper {
 		$ended = false;
 		$winner = false;
 		$remaining_empty_cells = 0;
+		if (count($board) === 0) {
+		    return [false, false];
+        }
 		foreach ($board as $cell) {
 			if (!$ended) {
-				if ($cell[1] === 1) {
-					if ($cell[0] === 1) {
+				if ($cell[1] === VIEW) {
+					if ($cell[0] === BOMB) {
 						$ended = true;
 						$winner = false;
 					}
 				} else {
-					if ($cell[0] !== 1) {
+					if ($cell[0] !== BOMB) {
 						$remaining_empty_cells++;
 					}
 				}
@@ -182,15 +188,27 @@ class MineSweeper {
 
 	/**
 	 * @param int $button_index
+     * @param boolean $flag
 	 */
-	function MakeMove($button_index) {
-	    $board = $this->board;
-		if (count($board) === 0) {
-			$this->SetupNewBoard($button_index);
-			$this->SelectCellAtIndex($button_index);
-		} else {
-			$this->SelectCellAtIndex($button_index);
-		}
+	function MakeMove($button_index, $flag = false) {
+	    if (!$this->state[0]) {
+		    $board = $this->board;
+		    if (count($board) === 0) {
+			    $this->SetupNewBoard($button_index);
+			    $this->SelectCellAtIndex($button_index);
+		    } else {
+			    if ($flag && $board[$button_index][1] !== VIEW) {
+				    if ($board[$button_index][1] === FLAG) {
+					    $board[$button_index][1] = HIDDEN;
+				    } else {
+					    $board[$button_index][1] = FLAG;
+				    }
+				    $this->board = $board;
+			    } else {
+				    $this->SelectCellAtIndex($button_index);
+			    }
+		    }
+        }
 		$this->CheckGameState();
     }
 }
@@ -237,9 +255,9 @@ if (isset($_GET['params'])) {
 	$minesweeper = new MineSweeper($rows, $columns, $mines, []);
 	if (isset($_POST['board'])) {
 		$minesweeper->board = json_decode($_POST['board']);
-		if (isset($_POST['button'])) {
+		if (isset($_POST['button']) && isset($_POST['flag'])) {
 			if ($_POST['button'] >= 0) {
-			    $minesweeper->MakeMove($_POST['button']);
+			    $minesweeper->MakeMove($_POST['button'], $_POST['flag'] == 1);
 			}
 		}
 	}
@@ -250,9 +268,12 @@ if (isset($_GET['params'])) {
 	 * render board
 	 */
 	?>
-	<form action="index.php?params=<?php echo $_GET['params']; ?>" method="post">
+    <p>Left Click to reveal tile</p>
+    <p>Right Click to mark the tile as BOMB!</p>
+	<form action="index.php?params=<?php echo $_GET['params']; ?>" method="post" id="mainForm">
 	<input type="hidden" value="<?php echo json_encode($board); ?>" name="board">
 	<input type="hidden" value="-1" id="button_index" name="button">
+    <input type="hidden" value="0" id="flag_mode" name="flag">
 	<?php
 	$indexer = 0;
 	for ($i = 0; $i < $rows; $i++) {
@@ -262,12 +283,16 @@ if (isset($_GET['params'])) {
 			$color = 'black';
 			$background = 'white';
 			if (isset($board[$indexer])) {
-				if ($board[$indexer][1] === 1 || $state[0]) {
-					if ($board[$indexer][0] === 1) {
-						$label = 'B';
+			    if ($board[$indexer][1] === FLAG) {
+			        $label = '&#9873;';
+			        $background = 'orange';
+			        $color = 'white';
+                } else if ($board[$indexer][1] === VIEW || $state[0]) {
+					if ($board[$indexer][0] === BOMB) {
+						$label = '&#128163;';
 						$background = $state[1] ? 'green':'red';
 						$color = 'white';
-					} else if ($board[$indexer][0] > 0) {
+					} else if ($board[$indexer][0] > BLANK) {
 						$label = intval($board[$indexer][0]-1);
 						if ($label <= 2) {
 							$color = 'green';
@@ -284,9 +309,9 @@ if (isset($_GET['params'])) {
 				}
 			}
 			?>
-			<button style="border: 1px black solid;width: 40px; height: 40px; margin: 5px; padding: 0px; color: <?php echo $color?>; background-color: <?php echo $background; ?>" onclick="SetButtonIndex('<?php echo $indexer; ?>')">
-				<?php echo $label; ?>
-			</button>
+			<div style="text-align: center; display: inline-block; border: 1px black solid; width: 40px; height: 40px; margin: 5px; padding: 0px; color: <?php echo $color?>; background-color: <?php echo $background; ?>" oncontextmenu="SetFlagIndex('<?php echo $indexer; ?>'); return false;" onclick="SetButtonIndex('<?php echo $indexer; ?>')">
+				<span style="line-height: 40px; display: inline-block; vertical-align: middle;"><?php echo $label; ?></span>
+			</div>
 			<?php
 			$indexer++;
 		}
@@ -335,8 +360,18 @@ if (isset($_GET['params'])) {
 		<script>
 		    var SetButtonIndex = function(index) {
 		        var button_input = document.getElementById("button_index");
+		        var flag_mode = document.getElementById("flag_mode");
 		        button_input.value = index;
-		    }
+		        flag_mode.value = 0;
+		        document.getElementById("mainForm").submit();
+		    };
+		    var SetFlagIndex = function(index) {
+                var button_input = document.getElementById("button_index");
+                var flag_mode = document.getElementById("flag_mode");
+                button_input.value = index;
+                flag_mode.value = 1;
+                document.getElementById("mainForm").submit();
+            };
 		</script>
 	</body>
 </html>
